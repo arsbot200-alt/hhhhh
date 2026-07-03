@@ -257,9 +257,9 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
 
              if (chatEntity) {
                  // Get video dimensions using ffprobe
-                 let w = 426;
-                 let h = 240;
-                 let fps = 20;
+                 let w = 320;
+                 let h = 180;
+                 let fps = 15;
                  try {
                      const { stdout } = await execPromise(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${finalVideoPath}"`);
                      let [vw, vh] = stdout.trim().split('x').map(Number);
@@ -273,7 +273,7 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                      }
 
                      if (vw && vh) {
-                         let MAX_DIM = 426;
+                         let MAX_DIM = 320;
                          if (vw > vh) {
                              // Landscape
                              if (vw > MAX_DIM) {
@@ -298,7 +298,7 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                          h = Math.floor(h / 2) * 2;
                      }
                  } catch (e: any) {
-                     console.error("[ffprobe] failed to get video dimensions, falling back to 426x240", e.message);
+                     console.error("[ffprobe] failed to get video dimensions, falling back to 320x180", e.message);
                  }
 
                  console.log(`[Bot] Configuring video stream with resolution ${w}x${h} at ${fps} FPS`);
