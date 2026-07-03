@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: tg-video-bot
+    env: docker
+    envVars:
+      - key: NODE_ENV
+        value: production

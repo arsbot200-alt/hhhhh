@@ -1,0 +1,6 @@
+{
+  "name": "StreamBot & Auto-Responder",
+  "description": "Telegram Mini App to configure a userbot for VC video streaming and Groq AI auto-reply.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
