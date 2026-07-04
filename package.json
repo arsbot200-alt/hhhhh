@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "postinstall": "node patch_tgcalls_postinstall.js"
+    "prebuild": "node patch_tgcalls_postinstall.js"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
