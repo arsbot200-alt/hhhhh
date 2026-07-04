@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { LoginForm } from './components/LoginForm';
 import { Dashboard } from './components/Dashboard';

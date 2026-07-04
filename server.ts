@@ -33,7 +33,7 @@ app.get("/ping", (req, res) => {
   res.send("pong");
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 // Store active pending authentications
 const activeClients = new Map<string, { client: TelegramClient, phoneCodeHash: string }>();
@@ -237,7 +237,8 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
              let chatEntity: any = null;
              
              if (groupLink.includes('joinchat/') || groupLink.includes('+')) {
-                 const inviteHash = groupLink.split('/').pop()?.replace('+', '') || '';
+                 const urlParts = groupLink.split('/').filter(Boolean);
+                 const inviteHash = urlParts.pop()?.replace('+', '') || '';
                  try {
                      const inviteResult: any = await client.invoke(new Api.messages.CheckChatInvite({ hash: inviteHash }));
                      if (inviteResult.className === 'ChatInviteAlready') {
@@ -248,11 +249,29 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                      }
                  } catch(e: any) {
                      console.error("Invite resolution error, attempting fallback:", e.message);
-                     chatEntity = await client.getEntity(groupLink);
+                     try {
+                         chatEntity = await client.getEntity(groupLink);
+                     } catch(err: any) {
+                         console.error("Fallback entity resolution failed:", err.message);
+                     }
                  }
              } else {
-                 const username = groupLink.split('/').pop() || groupLink;
-                 chatEntity = await client.getEntity(username);
+                 let username = groupLink.split('/').filter(Boolean).pop() || groupLink;
+                 if (username.startsWith('@')) username = username.slice(1);
+                 
+                 try {
+                     const resolved: any = await client.invoke(new Api.contacts.ResolveUsername({ username }));
+                     if (resolved && resolved.chats && resolved.chats.length > 0) {
+                         chatEntity = resolved.chats[0];
+                     } else if (resolved && resolved.users && resolved.users.length > 0) {
+                         chatEntity = resolved.users[0];
+                     } else {
+                         chatEntity = await client.getEntity(username);
+                     }
+                 } catch(err: any) {
+                     console.error("Entity resolution failed:", err.message);
+                     throw new Error(`Failed to find group or channel for link: ${groupLink}`);
+                 }
              }
 
              if (chatEntity) {
