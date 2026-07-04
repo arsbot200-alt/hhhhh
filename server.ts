@@ -371,7 +371,18 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                  tgCall = new GramTGCalls(client, chatEntity);
                  
                  // Setup FFmpeg for audio
-                 const audioProcess = spawn('ffmpeg', [
+                 
+                 let hasAudio = false;
+                 try {
+                     const { stdout } = await execPromise(`ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of default=nw=1:nk=1 "${finalVideoPath}"`);
+                     if (stdout.trim().toLowerCase() === 'audio') {
+                         hasAudio = true;
+                     }
+                 } catch(e) {
+                     console.error("ffprobe audio check failed, assuming no audio", e.message);
+                 }
+
+                 const audioArgs = hasAudio ? [
                     '-re',
                     '-stream_loop', '-1',
                     '-i', finalVideoPath,
@@ -379,7 +390,18 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                     '-ac', '1',
                     '-ar', '65000',
                     'pipe:1',
-                 ]);
+                 ] : [
+                    '-re',
+                    '-f', 'lavfi',
+                    '-i', 'anullsrc=r=65000:cl=mono',
+                    '-f', 's16le',
+                    '-ac', '1',
+                    '-ar', '65000',
+                    'pipe:1'
+                 ];
+
+                 const audioProcess = spawn('ffmpeg', audioArgs);
+
 
                  // Setup FFmpeg for video
                  const videoProcess = spawn('ffmpeg', [
@@ -396,7 +418,10 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                  ]);
 
                  audioProcess.stderr.on('data', (data) => {
-                     // console.log(`[FFmpeg Audio]: ${data.toString()}`);
+                     const str = data.toString();
+                     if (str.toLowerCase().includes('error')) {
+                        console.error(`[FFmpeg Audio Error]: ${str}`);
+                     }
                  });
                  videoProcess.stderr.on('data', (data) => {
                      const str = data.toString();
@@ -462,6 +487,12 @@ app.post('/api/bot/stop', async (req, res) => {
     if (bot) {
         if (bot.tgCall) {
             await bot.tgCall.stop();
+        }
+        if (bot.audioProcess) {
+            bot.audioProcess.kill('SIGKILL');
+        }
+        if (bot.videoProcess) {
+            bot.videoProcess.kill('SIGKILL');
         }
         await bot.client.disconnect();
         runningBots.delete(botId);
