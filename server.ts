@@ -200,6 +200,7 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
             throw new Error("Failed to connect to Telegram: " + (e.message || "Unknown error"));
         }
 
+        client.setLogLevel("none");
         const botId = crypto.randomUUID();
         const repliedUsers = new Set<string>();
 
@@ -236,7 +237,37 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
            try {
              let chatEntity: any = null;
              
-             if (groupLink.includes('joinchat/') || groupLink.includes('+')) {
+             // Check if it's a numeric ID (e.g. -100123456789)
+             if (/^\-?\d+$/.test(groupLink)) {
+                 try {
+                     chatEntity = await client.getEntity(BigInt(groupLink));
+                 } catch(err: any) {
+                     
+                     console.error("Failed to resolve numeric chat ID:", err.message);
+                     if (err.message && err.message.includes("AUTH_KEY_UNREGISTERED")) {
+                         throw new Error("Your Telegram session has expired. Please log out and log in again.");
+                     }
+
+                 }
+             }
+             // Check for private message links like https://t.me/c/1234567890/1
+             else if (groupLink.includes('/c/')) {
+                 const match = groupLink.match(/\/c\/(\d+)/);
+                 if (match && match[1]) {
+                     const chatId = "-100" + match[1];
+                     try {
+                         chatEntity = await client.getEntity(BigInt(chatId));
+                     } catch(err: any) {
+                         
+                         console.error("Failed to resolve private message link chat ID:", err.message);
+                         if (err.message && err.message.includes("AUTH_KEY_UNREGISTERED")) {
+                             throw new Error("Your Telegram session has expired. Please log out and log in again.");
+                         }
+
+                     }
+                 }
+             }
+             else if (groupLink.includes('joinchat/') || groupLink.includes('+')) {
                  const urlParts = groupLink.split('/').filter(Boolean);
                  const inviteHash = urlParts.pop()?.replace('+', '') || '';
                  try {
@@ -252,7 +283,12 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                      try {
                          chatEntity = await client.getEntity(groupLink);
                      } catch(err: any) {
+                         
                          console.error("Fallback entity resolution failed:", err.message);
+                         if (err.message && err.message.includes("AUTH_KEY_UNREGISTERED")) {
+                             throw new Error("Your Telegram session has expired. Please log out and log in again.");
+                         }
+
                      }
                  }
              } else {
@@ -269,10 +305,20 @@ app.post('/api/bot/start', upload.single('video'), async (req, res) => {
                          chatEntity = await client.getEntity(username);
                      }
                  } catch(err: any) {
+                     
                      console.error("Entity resolution failed:", err.message);
-                     throw new Error(`Failed to find group or channel for link: ${groupLink}`);
+                     if (err.message && err.message.includes("AUTH_KEY_UNREGISTERED")) {
+                         throw new Error("Your Telegram session has expired. Please log out and log in again.");
+                     }
+
                  }
              }
+             
+             
+             if (!chatEntity) {
+                 throw new Error(`Failed to find group or channel for link: ${groupLink}`);
+             }
+
 
              if (chatEntity) {
                  // Get video dimensions using ffprobe
